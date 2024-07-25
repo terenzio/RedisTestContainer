@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	redisClient "github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
@@ -18,30 +19,15 @@ var ctx = context.Background()
 func TestIntegrationWithRedis(t *testing.T) {
 
 	//// Start a Redis container
-	//redisContainer, err := redisContainer.RunContainer(ctx, testcontainers.WithImage("redis:7"))
-	//if err != nil {
-	//	t.Fatalf("Could not start redis container: %v", err)
-	//}
-	//defer redisContainer.Terminate(ctx)
-	//
-	//// Get the address of the running Redis container
-	//redisAddress, err := redisContainer.ContainerIP(ctx)
-	//if err != nil {
-	//	t.Fatalf("Could not get container IP: %v", err)
-	//}
-	//redisPort, err := redisContainer.MappedPort(ctx, "6379/tcp")
-	//if err != nil {
-	//	t.Fatalf("Could not get mapped port: %v", err)
-	//}
-	//
-	//redisAddress = fmt.Sprintf("%s:%s", redisAddress, redisPort.Port())
-	//fmt.Println("Redis address:", redisAddress)
-
 	request := testcontainers.ContainerRequest{
 		Image:        "redis:latest",
 		ExposedPorts: []string{"6379/tcp"},
-		Env:          map[string]string{"REDIS_PASSWORD": "secret"},
-		WaitingFor:   wait.ForLog("Ready to accept connections"),
+		//Env:          map[string]string{"ALLOW_EMPTY_PASSWORD": "yes"},
+		Env: map[string]string{
+			//"REDIS_USERNAME": "myadmin",
+			"REDIS_PASSWORD": "secret",
+		},
+		WaitingFor: wait.ForLog("Ready to accept connections"),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -62,18 +48,19 @@ func TestIntegrationWithRedis(t *testing.T) {
 	// Create a new Redis client pointing to the Redis container
 	rdb := redisClient.NewClient(&redisClient.Options{
 		//Addr: redisAddress,
-		Addr:     endpoint,
-		Password: "secret",
+		Addr: endpoint,
+		//Username: "myadmin",
+		//	Password: "secret",
 	})
 
 	// Wait for the Redis container to be ready
-	//for {
-	//	err := rdb.Ping(ctx).Err()
-	//	if err == nil {
-	//		break
-	//	}
-	//	time.Sleep(100 * time.Millisecond)
-	//}
+	for {
+		err := rdb.Ping(ctx).Err()
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Run the integration tests
 	t.Run("Set and Get Employee", func(t *testing.T) {
